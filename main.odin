@@ -87,14 +87,13 @@ write_string :: proc(f: os.Handle, str: string) -> bool {
     return true
 }
 
-SOURCE_FILE :: "example"
 main :: proc() {
-    //if len(os.args) != 2 {
-    //    fmt.printf("Usage: %v <source_file>\n", os.args[0])
-    //    return
-    //}
+    if len(os.args) != 2 {
+        fmt.printf("Usage: %v <source_file>\n", os.args[0])
+        return
+    }
 
-    if !lexer_init(SOURCE_FILE) { return }
+    if !lexer_init(os.args[1]) { return }
     defer lexer_deinit()
 
     token, ok := lexer_next().(Token)
