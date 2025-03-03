@@ -1,0 +1,11 @@
+main
+    /say hello world
+    /say Good morning
+
+foo
+    /summon pig
+    /summon zombie
+
+baz
+    /summon pig
+    /summon zombie
