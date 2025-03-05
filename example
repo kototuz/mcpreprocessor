@@ -1,11 +1,12 @@
-main
-    /say hello world
-    /say Good morning
+@fn main
+    say Hello, world
+    say Hello, world
+    execute as @s run function main:setup {a:12, b:13}
+@end
 
-foo
-    /summon pig
-    /summon zombie
+@fn foo
+    tellraw @s FIND IT!!!
+@end
 
-baz
-    /summon pig
-    /summon zombie
+@fn baz
+@end

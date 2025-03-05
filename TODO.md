@@ -17,3 +17,12 @@
             <command>
             ...
         ```
+
+- [ ] Better function declarations
+    ```
+    @fn <fn_name>
+        <command>
+        <command>
+        ...
+    @end
+    ```
