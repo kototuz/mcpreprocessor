@@ -18,7 +18,7 @@
             ...
         ```
 
-- [ ] Better function declarations
+- [X] Better function declarations
     ```
     @fn <fn_name>
         <command>

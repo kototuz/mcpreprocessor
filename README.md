@@ -1,5 +1,7 @@
 # mcpreprocessor
 
+Like C preprocessor :)
+
 ## The main goal
 
 The main goal is to make minecraft pack development easier by
@@ -11,29 +13,26 @@ This is a basic snippet of what you can do right now:
 This code will be processed into `.mcfunction` files
 
 ```
-main
-    /say hello world
-    /say Good morning
+@fn main
+    say hello world
+    say Good morning
+@end
 
-foo
-    /summon pig
-    /summon zombie
+@fn foo
+    summon pig
+    summon zombie
+@end
 
-baz
-    /summon pig
-    /summon zombie
+@fn baz
+    summon pig
+    summon zombie
+@end
 ```
+
+> [!NOTE]
+> The program doesn't check whether valid your code.
+> It works just like macro
 
 ## Build
 
-Go to the project directory and run:
-
-``` console
-odin build .
-```
-
-or
-
-``` console
-odin run .
-```
+Just go to to the `src` directory and write `odin build .` or `odin run .`
