@@ -163,6 +163,7 @@ COUNT,
 B_Custom_Keyword_Begin = COUNT+1,
     Fn,
     End,
+    Macro
 }
 
 tokens := [Token_Kind.COUNT]string {
@@ -299,6 +300,7 @@ tokens := [Token_Kind.COUNT]string {
 custom_keyword_tokens: []string = {
     "@fn",
     "@end",
+    "@macro",
 }
 
 is_newline :: proc(tok: Token) -> bool {

@@ -498,18 +498,11 @@ scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
     lit: string
     pos := offset_to_pos(t, offset)
 
+    // TODO: Maybe do with that something
     switch ch := t.ch; true {
-    case is_letter(ch):
-        if in_cmd_mode {
-            kind = .Command
-            for t.ch != '\n' && t.ch > 0 {
-                advance_rune(t)
-            }
-            lit = t.src[offset:t.offset]
-        } else {
-            kind = .Ident
-            lit = scan_identifier(t)
-        }
+    case ch == '#':
+        kind = .Hash
+        advance_rune(t)
 
     case ch == '@':
         advance_rune(t)
@@ -524,9 +517,26 @@ scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
             }
             error(t, offset, "unknown keyword '%v'", lit)
         }
+
     case '0' <= ch && ch <= '9':
         kind, lit = scan_number(t, false)
+
     case:
+        if in_cmd_mode {
+            kind = .Command
+            for t.ch != '\n' && t.ch > 0 {
+                advance_rune(t)
+            }
+            lit = t.src[offset:t.offset]
+            break
+        }
+
+        if is_letter(ch) {
+            kind = .Ident
+            lit = scan_identifier(t)
+            break
+        }
+
         advance_rune(t)
         switch ch {
         case -1:

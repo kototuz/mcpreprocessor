@@ -26,3 +26,8 @@
         ...
     @end
     ```
+
+- [X] Macro
+    - [X] New keyword `@macro`
+    - [X] Macro table map[macro-name]macro-text
+    - [X] Macro call syntax `#<macro-name>`

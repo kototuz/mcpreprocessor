@@ -1,6 +1,13 @@
+@macro foo
+    say ===============
+    say HELLO, WORLD!!!
+    say ===============
+@end
+
 @fn main
+    #foo
     say Hello, world
-    say Hello, world
+    $say Hello, world
     execute as @s run function main:setup {a:12, b:13}
 @end
 
