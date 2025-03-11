@@ -157,7 +157,7 @@ main :: proc() {
     delete(bytes)
 
     tokenizer: Tokenizer
-    init(&tokenizer, file_src, "test")
+    init(&tokenizer, file_src, os.args[1])
 
     path_builder = strings.builder_make()
     defer strings.builder_destroy(&path_builder)
@@ -176,11 +176,8 @@ main :: proc() {
         case .At:  if !process_fn(&tokenizer) { os.exit(1) }
         case .Def: if !process_macro(&tokenizer) { os.exit(1) }
         case:
-            default_error_handler(token.pos, "uexpected token '%v'", token.text)
+            default_error_handler(token.pos, "unexpected token '%v'", token.text)
             os.exit(1)
         }
     }
 }
-
-// TODO: Support for comments
-// TODO: Macro body processing
