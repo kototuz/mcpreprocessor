@@ -7,10 +7,9 @@ Like C preprocessor :)
 The main goal is to make minecraft pack development easier by
 automating some repeating processes (e.g. function creating)
 
-## Current state
+## Demo
 
-This is a basic snippet of what you can do right now:
-This code will be processed into `.mcfunction` files
+This code will be compiled into `.mcfunction` files
 
 ```
 @fn main

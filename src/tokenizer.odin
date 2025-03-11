@@ -492,6 +492,21 @@ scan_number :: proc(t: ^Tokenizer, seen_decimal_point: bool) -> (Token_Kind, str
 scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
     skip_whitespace(t)
 
+    // Skip comments because we don't need them as tokens
+    loop: for t.ch == '/' { 
+        if t.offset+1 >= len(t.src) { break }
+        switch t.src[t.offset+1] {
+        case '/': fallthrough
+        case '*':
+            advance_rune(t)
+            scan_comment(t)
+            skip_whitespace(t)
+
+        case:
+            break loop
+        }
+    }
+
     offset := t.offset
 
     kind: Token_Kind

@@ -1,11 +1,16 @@
+// Comments
+/* Comments */
+
+// Define macro foo
 @macro foo
     say ===============
     say HELLO, WORLD!!!
     say ===============
 @end
 
+// Define function
 @fn main
-    #foo
+    #foo // Call macro foo
     say Hello, world
     $say Hello, world
     execute as @s run function main:setup {a:12, b:13}
@@ -16,6 +21,5 @@
 @end
 
 @fn baz
-    say Maybe we can do it later?
-    okkkkkk let's go
+    say OK!
 @end
