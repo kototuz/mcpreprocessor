@@ -8,7 +8,21 @@ say Hello, world
 
 // Define function
 @main {
-    %foo // Call macro 'foo'
+    %foo // Expand macro 'foo'
+
+    // Nested functions
+    @baz {
+        @bar {
+            say Bar!
+        }
+
+        say Baz!
+    }
+
+    // Execute nested functions
+    function test:main.baz
+    function test:main.baz.bar
+
     say Hello, world
     $say Hello, world
     execute as @s run function main:setup {a:12, b:13}

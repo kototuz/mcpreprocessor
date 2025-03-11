@@ -7,6 +7,7 @@ import "core:strings"
 output_path:  string
 path_builder: strings.Builder
 macro:        map[string]string // map[<macro-name>]<macro_body>
+fn_file_name: strings.Builder
 
 expect_token_kind :: proc(tok: Token, k: Token_Kind) -> bool {
     if tok.kind != k {
@@ -26,18 +27,31 @@ write_string :: proc(f: os.Handle, str: string) -> bool {
     return true
 }
 
-process_fn :: proc(t: ^Tokenizer) -> bool {
+// TODO: Check for redefinition of a function
+process_fn :: proc(t: ^Tokenizer, parent_fn_name: string = "") -> bool {
     // Get name
     token := scan(t)
     expect_token_kind(token, .Ident) or_return
     expect_token_kind(scan(t), .Open_Brace) or_return
 
-    // Build .mcfunction file path
-    strings.builder_reset(&path_builder)
-    strings.write_string(&path_builder, output_path)
-    strings.write_byte(&path_builder, '/')
-    strings.write_string(&path_builder, token.text)
-    strings.write_string(&path_builder, ".mcfunction")
+    { // Build .mcfunction file path
+        strings.builder_reset(&path_builder)
+        strings.write_string(&path_builder, output_path)
+        strings.write_byte(&path_builder, '/')
+
+        if len(parent_fn_name) > 0 {
+            strings.write_string(&path_builder, parent_fn_name)
+            strings.write_byte(&path_builder, '.')
+            strings.write_byte(&fn_file_name, '.')
+            strings.write_string(&fn_file_name, token.text)
+        } else {
+            strings.builder_reset(&fn_file_name)
+            strings.write_string(&fn_file_name, token.text)
+        }
+
+        strings.write_string(&path_builder, token.text)
+        strings.write_string(&path_builder, ".mcfunction")
+    }
 
     // Create .mcfunction file
     fn_file, err := os.open(strings.to_string(path_builder), os.O_CREATE | os.O_WRONLY, os.S_IRUSR | os.S_IWUSR)
@@ -54,6 +68,11 @@ process_fn :: proc(t: ^Tokenizer) -> bool {
         case .Command:
             write_string(fn_file, token.text) or_return
             write_string(fn_file, "\n") or_return
+
+        case .At:
+            curr_file_name_len := len(fn_file_name.buf)
+            process_fn(t, strings.to_string(fn_file_name)) or_return
+            resize(&fn_file_name.buf, curr_file_name_len)
 
         case .Mod:
             token = scan(t)
@@ -142,6 +161,9 @@ main :: proc() {
 
     path_builder = strings.builder_make()
     defer strings.builder_destroy(&path_builder)
+
+    fn_file_name = strings.builder_make()
+    defer strings.builder_destroy(&fn_file_name)
 
     macro = make(map[string]string)
     defer delete(macro)

@@ -43,3 +43,5 @@
         #def <macro-name>
         #end
         ```
+
+- [X] Nested function declarations
