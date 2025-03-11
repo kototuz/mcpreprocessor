@@ -31,3 +31,15 @@
     - [X] New keyword `@macro`
     - [X] Macro table map[macro-name]macro-text
     - [X] Macro call syntax `#<macro-name>`
+
+- [X] New syntax
+    - [X] Function declarations
+        ```
+        @<function-name> {
+        }
+        ```
+    - [X] Macro declarations
+        ```
+        #def <macro-name>
+        #end
+        ```

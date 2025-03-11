@@ -1,25 +1,23 @@
 // Comments
 /* Comments */
 
-// Define macro foo
-@macro foo
-    say ===============
-    say HELLO, WORLD!!!
-    say ===============
-@end
+// Define macro 'foo'
+#def foo
+say Hello, world
+#end
 
 // Define function
-@fn main
-    #foo // Call macro foo
+@main {
+    %foo // Call macro 'foo'
     say Hello, world
     $say Hello, world
     execute as @s run function main:setup {a:12, b:13}
-@end
+}
 
-@fn foo
+@foo {
     tellraw @s FIND IT!!!
-@end
+}
 
-@fn baz
+@baz {
     say OK!
-@end
+}

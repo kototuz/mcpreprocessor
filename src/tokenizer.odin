@@ -515,11 +515,19 @@ scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
 
     // TODO: Maybe do with that something
     switch ch := t.ch; true {
-    case ch == '#':
-        kind = .Hash
+    case ch == '%':
+        kind = .Mod
         advance_rune(t)
 
     case ch == '@':
+        kind = .At
+        advance_rune(t)
+
+    case ch == '}':
+        kind = .Close_Brace
+        advance_rune(t)
+
+    case ch == '#':
         advance_rune(t)
         lit = scan_identifier(t)
         #no_bounds_check { lit = lit[-1:] }
@@ -613,7 +621,6 @@ scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
             case '[': kind = .Open_Bracket
             case ']': kind = .Close_Bracket
             case '{': kind = .Open_Brace
-            case '}': kind = .Close_Brace
             case '%':
                 kind = .Mod
                 switch t.ch {

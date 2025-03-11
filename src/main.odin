@@ -30,6 +30,7 @@ process_fn :: proc(t: ^Tokenizer) -> bool {
     // Get name
     token := scan(t)
     expect_token_kind(token, .Ident) or_return
+    expect_token_kind(scan(t), .Open_Brace) or_return
 
     // Build .mcfunction file path
     strings.builder_reset(&path_builder)
@@ -54,7 +55,7 @@ process_fn :: proc(t: ^Tokenizer) -> bool {
             write_string(fn_file, token.text) or_return
             write_string(fn_file, "\n") or_return
 
-        case .Hash:
+        case .Mod:
             token = scan(t)
             expect_token_kind(token, .Ident) or_return
             if !(token.text in macro) {
@@ -65,7 +66,7 @@ process_fn :: proc(t: ^Tokenizer) -> bool {
             write_string(fn_file, "\n") or_return
 
         case:
-            expect_token_kind(token, .End) or_return
+            expect_token_kind(token, .Close_Brace) or_return
             break loop
         }
     }
@@ -150,8 +151,8 @@ main :: proc() {
         if token.kind == .EOF { break }
 
         #partial switch token.kind {
-        case .Fn:    if !process_fn(&tokenizer) { os.exit(1) }
-        case .Macro: if !process_macro(&tokenizer) { os.exit(1) }
+        case .At:  if !process_fn(&tokenizer) { os.exit(1) }
+        case .Def: if !process_macro(&tokenizer) { os.exit(1) }
         case:
             default_error_handler(token.pos, "uexpected token '%v'", token.text)
             os.exit(1)

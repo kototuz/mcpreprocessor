@@ -12,20 +12,20 @@ automating some repeating processes (e.g. function creating)
 This code will be compiled into `.mcfunction` files
 
 ```
-@fn main
+@main {
     say hello world
     say Good morning
-@end
+}
 
-@fn foo
+@foo {
     summon pig
     summon zombie
-@end
+}
 
-@fn baz
+@baz {
     summon pig
     summon zombie
-@end
+}
 ```
 
 > [!NOTE]
