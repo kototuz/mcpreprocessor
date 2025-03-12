@@ -45,3 +45,17 @@
         ```
 
 - [X] Nested function declarations
+
+- [X] Check for function redefinitions
+
+- [ ] Lambda functions
+    ```
+    @main {
+        function test:main \
+        #lambda {
+            say Hello, world
+        }
+    }
+    ```
+
+- [ ] Expand macro in macro

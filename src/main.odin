@@ -3,11 +3,16 @@ package main
 import "core:fmt"
 import "core:os"
 import "core:strings"
+import "core:slice"
+
+Function_Name :: string
+Scope         :: [dynamic]Function_Name
 
 output_path:  string
 path_builder: strings.Builder
 macro:        map[string]string // map[<macro-name>]<macro_body>
 fn_file_name: strings.Builder
+scopes:       [dynamic]Scope
 
 expect_token_kind :: proc(tok: Token, k: Token_Kind) -> bool {
     if tok.kind != k {
@@ -27,11 +32,21 @@ write_string :: proc(f: os.Handle, str: string) -> bool {
     return true
 }
 
-// TODO: Check for redefinition of a function
 process_fn :: proc(t: ^Tokenizer, parent_fn_name: string = "") -> bool {
     // Get name
     token := scan(t)
     expect_token_kind(token, .Ident) or_return
+
+    // Check for function redefinition
+    scope := &scopes[len(scopes)-1]
+    if slice.contains(scope[:], token.text) {
+        default_error_handler(token.pos, "redefinition of function '%v'", token.text)
+        return false
+    }
+
+    // Append the function name to the scope
+    append(scope, token.text)
+
     expect_token_kind(scan(t), .Open_Brace) or_return
 
     { // Build .mcfunction file path
@@ -60,6 +75,10 @@ process_fn :: proc(t: ^Tokenizer, parent_fn_name: string = "") -> bool {
         return false
     }
     defer os.close(fn_file)
+
+    // Append the function local scope
+    append_nothing(&scopes)
+    defer pop(&scopes)
 
     // Process function body
     loop: for {
@@ -167,6 +186,17 @@ main :: proc() {
 
     macro = make(map[string]string)
     defer delete(macro)
+
+    scopes = make([dynamic]Scope)
+    defer {
+        for i in 0..<cap(scopes) {
+            #no_bounds_check { delete(scopes[i]) }
+        }
+        delete(scopes)
+    }
+    
+    // Append global scope
+    append_nothing(&scopes)
 
     for {
         token := scan(&tokenizer)
