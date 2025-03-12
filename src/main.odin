@@ -4,14 +4,16 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import "core:slice"
+import path "core:path/filepath"
 
 Function_Name :: string
 Scope         :: [dynamic]Function_Name
 
+EXTENSION     :: ".mcfunction"
+
 output_path:  string
 path_builder: strings.Builder
 macro:        map[string]string // map[<macro-name>]<macro_body>
-fn_file_name: strings.Builder
 scopes:       [dynamic]Scope
 
 expect_token_kind :: proc(tok: Token, k: Token_Kind) -> bool {
@@ -32,41 +34,20 @@ write_string :: proc(f: os.Handle, str: string) -> bool {
     return true
 }
 
-process_fn :: proc(t: ^Tokenizer, parent_fn_name: string = "") -> bool {
-    // Get name
-    token := scan(t)
-    expect_token_kind(token, .Ident) or_return
-
-    // Check for function redefinition
-    scope := &scopes[len(scopes)-1]
-    if slice.contains(scope[:], token.text) {
-        default_error_handler(token.pos, "redefinition of function '%v'", token.text)
-        return false
+path_append :: proc(str: string) {
+    if strings.builder_len(path_builder) > len(output_path) {
+        strings.write_byte(&path_builder, '.')
+        strings.write_string(&path_builder, str)
+        strings.write_string(&path_builder, EXTENSION)
+    } else {
+        strings.write_byte(&path_builder, path.SEPARATOR)
+        strings.write_string(&path_builder, str)
+        strings.write_string(&path_builder, EXTENSION)
     }
+}
 
-    // Append the function name to the scope
-    append(scope, token.text)
-
+process_block :: proc(t: ^Tokenizer) -> bool {
     expect_token_kind(scan(t), .Open_Brace) or_return
-
-    { // Build .mcfunction file path
-        strings.builder_reset(&path_builder)
-        strings.write_string(&path_builder, output_path)
-        strings.write_byte(&path_builder, '/')
-
-        if len(parent_fn_name) > 0 {
-            strings.write_string(&path_builder, parent_fn_name)
-            strings.write_byte(&path_builder, '.')
-            strings.write_byte(&fn_file_name, '.')
-            strings.write_string(&fn_file_name, token.text)
-        } else {
-            strings.builder_reset(&fn_file_name)
-            strings.write_string(&fn_file_name, token.text)
-        }
-
-        strings.write_string(&path_builder, token.text)
-        strings.write_string(&path_builder, ".mcfunction")
-    }
 
     // Create .mcfunction file
     fn_file, err := os.open(strings.to_string(path_builder), os.O_CREATE | os.O_WRONLY, os.S_IRUSR | os.S_IWUSR)
@@ -76,22 +57,20 @@ process_fn :: proc(t: ^Tokenizer, parent_fn_name: string = "") -> bool {
     }
     defer os.close(fn_file)
 
-    // Append the function local scope
-    append_nothing(&scopes)
-    defer pop(&scopes)
+    resize(&path_builder.buf, len(path_builder.buf) - len(EXTENSION))
+    curr_path_len := len(path_builder.buf)
 
-    // Process function body
+    // Process block content
     loop: for {
-        token = scan(t, true)
+        token := scan(t, true)
         #partial switch token.kind {
         case .Command:
             write_string(fn_file, token.text) or_return
             write_string(fn_file, "\n") or_return
 
         case .At:
-            curr_file_name_len := len(fn_file_name.buf)
-            process_fn(t, strings.to_string(fn_file_name)) or_return
-            resize(&fn_file_name.buf, curr_file_name_len)
+            process_fn(t) or_return
+            resize(&path_builder.buf, curr_path_len)
 
         case .Mod:
             token = scan(t)
@@ -108,6 +87,31 @@ process_fn :: proc(t: ^Tokenizer, parent_fn_name: string = "") -> bool {
             break loop
         }
     }
+
+    return true
+}
+
+process_fn :: proc(t: ^Tokenizer) -> bool {
+    // Get name
+    token := scan(t)
+    expect_token_kind(token, .Ident) or_return
+
+    // Check for function redefinition
+    scope := &scopes[len(scopes)-1]
+    if slice.contains(scope[:], token.text) {
+        default_error_handler(token.pos, "redefinition of function '%v'", token.text)
+        return false
+    }
+
+    // Append the function name to the scope
+    append(scope, token.text)
+
+    // Append the function local scope
+    append_nothing(&scopes)
+    defer pop(&scopes)
+
+    path_append(token.text)
+    process_block(t) or_return
 
     return true
 }
@@ -158,7 +162,7 @@ process_macro :: proc(t: ^Tokenizer) -> bool {
 
 main :: proc() {
     if len(os.args) == 3 {
-        output_path = os.args[2]
+        output_path = path.clean(os.args[2])
     } else if len(os.args) < 2 {
         fmt.eprintf("usage: %v <source_file> [<output_path>]\n", os.args[0])
         os.exit(1)
@@ -180,9 +184,7 @@ main :: proc() {
 
     path_builder = strings.builder_make()
     defer strings.builder_destroy(&path_builder)
-
-    fn_file_name = strings.builder_make()
-    defer strings.builder_destroy(&fn_file_name)
+    strings.write_string(&path_builder, output_path)
 
     macro = make(map[string]string)
     defer delete(macro)
@@ -203,8 +205,13 @@ main :: proc() {
         if token.kind == .EOF { break }
 
         #partial switch token.kind {
-        case .At:  if !process_fn(&tokenizer) { os.exit(1) }
-        case .Def: if !process_macro(&tokenizer) { os.exit(1) }
+        case .At:
+            if !process_fn(&tokenizer) { os.exit(1) }
+            resize(&path_builder.buf, len(output_path))
+
+        case .Def:
+            if !process_macro(&tokenizer) { os.exit(1) }
+
         case:
             default_error_handler(token.pos, "unexpected token '%v'", token.text)
             os.exit(1)
