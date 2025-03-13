@@ -515,6 +515,10 @@ scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
 
     // TODO: Maybe do with that something
     switch ch := t.ch; true {
+    case ch == ';':
+        kind = .Semicolon
+        advance_rune(t)
+
     case ch == '%':
         kind = .Mod
         advance_rune(t)
@@ -613,7 +617,6 @@ scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
             case '$': kind = .Dollar
             case '?': kind = .Question
             case '^': kind = .Pointer
-            case ';': kind = .Semicolon
             case ',': kind = .Comma
             case ':': kind = .Colon
             case '(': kind = .Open_Paren

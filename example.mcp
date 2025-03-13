@@ -19,6 +19,27 @@ say Hello, world
         say Baz!
     }
 
+    // Lambda functions
+    // NOTE: Lambda will be replaced with its name
+    //       e.g. in this example the code block will be processed
+    //       into `function test:main.0 with entity @s`
+    function test:\
+    #lambda {
+        say Hello, world!
+    } with entity @s
+
+    function test:\
+    #lambda {
+        say Hello, world!
+
+        // Nested lambda functions
+        function test:\
+        #lambda {
+            say Goodbye, world!
+        }; // `;` is used to paste new line, because by default the lambda
+           // function will be replaced by its name without newline
+    };
+
     // Execute nested functions
     function test:main.baz
     function test:main.baz.bar

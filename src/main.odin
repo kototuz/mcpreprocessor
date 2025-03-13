@@ -7,7 +7,10 @@ import "core:slice"
 import path "core:path/filepath"
 
 Function_Name :: string
-Scope         :: [dynamic]Function_Name
+Scope :: struct {
+    names:        [dynamic]Function_Name,
+    lambda_count: uint
+}
 
 EXTENSION     :: ".mcfunction"
 
@@ -34,7 +37,19 @@ write_string :: proc(f: os.Handle, str: string) -> bool {
     return true
 }
 
-path_append :: proc(str: string) {
+path_append_uint :: proc(v: uint) {
+    if strings.builder_len(path_builder) > len(output_path) {
+        strings.write_byte(&path_builder, '.')
+        strings.write_uint(&path_builder, v)
+        strings.write_string(&path_builder, EXTENSION)
+    } else {
+        strings.write_byte(&path_builder, path.SEPARATOR)
+        strings.write_uint(&path_builder, v)
+        strings.write_string(&path_builder, EXTENSION)
+    }
+}
+
+path_append_str :: proc(str: string) {
     if strings.builder_len(path_builder) > len(output_path) {
         strings.write_byte(&path_builder, '.')
         strings.write_string(&path_builder, str)
@@ -44,6 +59,11 @@ path_append :: proc(str: string) {
         strings.write_string(&path_builder, str)
         strings.write_string(&path_builder, EXTENSION)
     }
+}
+
+path_append :: proc{
+    path_append_uint,
+    path_append_str,
 }
 
 process_block :: proc(t: ^Tokenizer) -> bool {
@@ -60,6 +80,10 @@ process_block :: proc(t: ^Tokenizer) -> bool {
     resize(&path_builder.buf, len(path_builder.buf) - len(EXTENSION))
     curr_path_len := len(path_builder.buf)
 
+    // Append the function local scope
+    append_nothing(&scopes)
+    defer pop(&scopes)
+
     // Process block content
     loop: for {
         token := scan(t, true)
@@ -70,6 +94,19 @@ process_block :: proc(t: ^Tokenizer) -> bool {
 
         case .At:
             process_fn(t) or_return
+            resize(&path_builder.buf, curr_path_len)
+
+        case .Semicolon:
+            write_string(fn_file, "\n") or_return
+
+        case .Lambda:
+            scope := &scopes[len(scopes) - 1]
+            path_append(scope.lambda_count)
+            scope.lambda_count += 1
+            lambda_call_name := path_builder.buf[len(output_path)+1 : len(path_builder.buf) - len(EXTENSION)]
+            write_string(fn_file, string(lambda_call_name)) or_return
+            write_string(fn_file, " ") or_return
+            process_block(t) or_return
             resize(&path_builder.buf, curr_path_len)
 
         case .Mod:
@@ -98,17 +135,13 @@ process_fn :: proc(t: ^Tokenizer) -> bool {
 
     // Check for function redefinition
     scope := &scopes[len(scopes)-1]
-    if slice.contains(scope[:], token.text) {
+    if slice.contains(scope.names[:], token.text) {
         default_error_handler(token.pos, "redefinition of function '%v'", token.text)
         return false
     }
 
     // Append the function name to the scope
-    append(scope, token.text)
-
-    // Append the function local scope
-    append_nothing(&scopes)
-    defer pop(&scopes)
+    append(&scope.names, token.text)
 
     path_append(token.text)
     process_block(t) or_return
@@ -192,7 +225,7 @@ main :: proc() {
     scopes = make([dynamic]Scope)
     defer {
         for i in 0..<cap(scopes) {
-            #no_bounds_check { delete(scopes[i]) }
+            #no_bounds_check { delete(scopes[i].names) }
         }
         delete(scopes)
     }

@@ -48,13 +48,13 @@
 
 - [X] Check for function redefinitions
 
-- [ ] Lambda functions
+- [X] Lambda functions
     ```
     @main {
-        function test:main \
+        function test:\
         #lambda {
             say Hello, world
-        }
+        };
     }
     ```
 
