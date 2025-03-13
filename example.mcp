@@ -36,9 +36,8 @@ say Hello, world
         function test:\
         #lambda {
             say Goodbye, world!
-        }; // `;` is used to paste new line, because by default the lambda
-           // function will be replaced by its name without newline
-    };
+        }
+    }
 
     // Execute nested functions
     function test:main.baz

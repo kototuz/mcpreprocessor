@@ -58,4 +58,7 @@
     }
     ```
 
+- [X] Remove usage of ';'
+
 - [ ] Expand macro in macro
+

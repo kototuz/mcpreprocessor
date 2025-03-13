@@ -85,8 +85,8 @@ process_block :: proc(t: ^Tokenizer) -> bool {
     defer pop(&scopes)
 
     // Process block content
+    token := scan(t, true)
     loop: for {
-        token := scan(t, true)
         #partial switch token.kind {
         case .Command:
             write_string(fn_file, token.text) or_return
@@ -96,9 +96,6 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             process_fn(t) or_return
             resize(&path_builder.buf, curr_path_len)
 
-        case .Semicolon:
-            write_string(fn_file, "\n") or_return
-
         case .Lambda:
             scope := &scopes[len(scopes) - 1]
             path_append(scope.lambda_count)
@@ -107,7 +104,11 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             write_string(fn_file, string(lambda_call_name)) or_return
             write_string(fn_file, " ") or_return
             process_block(t) or_return
+            curr_line := t.line_count
+            token = scan(t, true)
+            if token.kind != .Command || token.pos.line > curr_line { write_string(fn_file, "\n") or_return }
             resize(&path_builder.buf, curr_path_len)
+            continue loop
 
         case .Mod:
             token = scan(t)
@@ -123,6 +124,8 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             expect_token_kind(token, .Close_Brace) or_return
             break loop
         }
+
+        token = scan(t, true)
     }
 
     return true

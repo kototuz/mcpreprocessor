@@ -515,10 +515,6 @@ scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
 
     // TODO: Maybe do with that something
     switch ch := t.ch; true {
-    case ch == ';':
-        kind = .Semicolon
-        advance_rune(t)
-
     case ch == '%':
         kind = .Mod
         advance_rune(t)
