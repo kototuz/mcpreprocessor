@@ -3,7 +3,17 @@
 
 // Define macro 'foo'
 #def foo
-say Hello, world
+    say Hello, world
+    %baz // Expand macro 'baz'
+#end
+
+#def baz
+    say OK!
+    %bar
+#end
+
+#def bar
+    say Good, Morning!
 #end
 
 // Define function

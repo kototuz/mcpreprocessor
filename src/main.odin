@@ -12,12 +12,23 @@ Scope :: struct {
     lambda_count: uint
 }
 
+Tokenizer_State :: struct {
+    src:         string,
+    ch:          rune,
+    offset:      int,
+    line_count:  int,
+    read_offset: int,
+    line_offset: int,
+    insert_semicolon: bool,
+}
+
 EXTENSION     :: ".mcfunction"
 
-output_path:  string
-path_builder: strings.Builder
-macro:        map[string]string // map[<macro-name>]<macro_body>
-scopes:       [dynamic]Scope
+output_path:     string
+path_builder:    strings.Builder
+macro:           map[string]Tokenizer_State // map[<macro-name>]<macro_body>
+scopes:          [dynamic]Scope
+tok_state_stack: [dynamic]Tokenizer_State
 
 expect_token_kind :: proc(tok: Token, k: Token_Kind) -> bool {
     if tok.kind != k {
@@ -80,11 +91,12 @@ process_block :: proc(t: ^Tokenizer) -> bool {
     resize(&path_builder.buf, len(path_builder.buf) - len(EXTENSION))
     curr_path_len := len(path_builder.buf)
 
-    // Append the function local scope
+    // Append the block local scope
     append_nothing(&scopes)
     defer pop(&scopes)
 
     // Process block content
+    // TODO: Macro declaration in blocks
     token := scan(t, true)
     loop: for {
         #partial switch token.kind {
@@ -92,6 +104,7 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             write_string(fn_file, token.text) or_return
             write_string(fn_file, "\n") or_return
 
+        // Function declaration
         case .At:
             process_fn(t) or_return
             resize(&path_builder.buf, curr_path_len)
@@ -110,15 +123,16 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             resize(&path_builder.buf, curr_path_len)
             continue loop
 
+        // Macro
         case .Mod:
-            token = scan(t)
-            expect_token_kind(token, .Ident) or_return
-            if !(token.text in macro) {
-                default_error_handler(token.pos, "macro '%v' is not defined", token.text)
+            expand_macro(t) or_return
+
+        case .EOF:
+            if len(tok_state_stack) == 0 {
+                error(t, t.offset, "Unclosed block")
                 return false
             }
-            write_string(fn_file, macro[token.text]) or_return
-            write_string(fn_file, "\n") or_return
+            set_state(t, pop(&tok_state_stack))
 
         case:
             expect_token_kind(token, .Close_Brace) or_return
@@ -127,6 +141,21 @@ process_block :: proc(t: ^Tokenizer) -> bool {
 
         token = scan(t, true)
     }
+
+    return true
+}
+
+expand_macro :: proc(t: ^Tokenizer) -> bool {
+    token := scan(t)
+    expect_token_kind(token, .Ident) or_return
+    tok_state, ok := macro[token.text]
+    if !ok {
+        default_error_handler(token.pos, "macro '%v' is not defined", token.text)
+        return false
+    }
+
+    append(&tok_state_stack, get_state(t^))
+    set_state(t, tok_state)
 
     return true
 }
@@ -152,6 +181,28 @@ process_fn :: proc(t: ^Tokenizer) -> bool {
     return true
 }
 
+scan_until_end :: proc(t: ^Tokenizer) -> (string, bool) {
+    offset := t.offset
+
+    for {
+        if t.ch == -1 {
+            error(t, t.offset, "'#end' was expected, but found 'EOF'")
+            return "", false
+        }
+
+        if t.ch == '#' {
+            offset_end := t.offset - 1
+            advance_rune(t)
+            lit := scan_identifier(t)
+            if lit == "end" {
+                return t.src[offset:offset_end], true
+            }
+        } else {
+            advance_rune(t)
+        }
+    }
+}
+
 process_macro :: proc(t: ^Tokenizer) -> bool {
     // Get macro name
     token := scan(t)
@@ -164,36 +215,57 @@ process_macro :: proc(t: ^Tokenizer) -> bool {
         return false
     }
 
-    token = scan(t, true)
-    if token.kind == .EOF {
-        default_error_handler(token.pos, "unexpected EOF")
-        return false
+    // Get the tokenizer state in macro definition.
+    // It is used to implement recursive macro expansion
+    tok_state := get_state(t^)
+
+    // Skip until newline to get the macro body start line
+    for t.ch != '\n' { advance_rune(t) }
+
+    // Scan the macro body
+    macro_body := scan_until_end(t) or_return
+    tok_state.src = macro_body
+
+    tok_state.offset = 0
+    tok_state.read_offset = 0
+    tok_state.line_count -= 1
+    tok_state.line_offset = 0
+
+    macro[macro_name] = tok_state
+
+    return true
+}
+
+get_state :: proc(t: Tokenizer) -> Tokenizer_State {
+    return {
+        ch = t.ch,
+        offset = t.offset,
+        read_offset = t.read_offset,
+        line_offset = t.line_offset,
+        line_count = t.line_count,
+        insert_semicolon = t.insert_semicolon,
+        src = t.src
+    }
+}
+
+print_macro_stacktrace_and_exit :: proc() -> ! {
+    for i := len(tok_state_stack)-1; i >= 0; i -= 1 {
+        tok_state := tok_state_stack[i]
+        column := tok_state.offset - tok_state.line_offset + 1
+        fmt.eprintf("    expansion of macro in (%v:%v)\n", tok_state.line_count, column)
     }
 
-    // Handle the case when the macro is empty
-    if token.kind == .End {
-        macro[macro_name] = ""
-        return true
-    }
+    os.exit(1)
+}
 
-    // Recognize the macro body
-    macro_body_begin := t.offset - len(token.text)
-    macro_body_end := t.offset
-    for {
-        token = scan(t, true)
-
-        if token.kind == .EOF {
-            default_error_handler(token.pos, "unexpected EOF")
-            return false
-        }
-
-        if token.kind == .End {
-            macro[macro_name] = t.src[macro_body_begin:macro_body_end]
-            return true
-        }
-
-        macro_body_end = t.offset
-    }
+set_state :: proc(t: ^Tokenizer, s: Tokenizer_State) {
+    t.ch = s.ch
+    t.offset = s.offset
+    t.read_offset = s.read_offset
+    t.line_offset = s.line_offset
+    t.insert_semicolon = s.insert_semicolon
+    t.line_count = s.line_count
+    t.src = s.src
 }
 
 main :: proc() {
@@ -222,8 +294,11 @@ main :: proc() {
     defer strings.builder_destroy(&path_builder)
     strings.write_string(&path_builder, output_path)
 
-    macro = make(map[string]string)
+    macro = make(map[string]Tokenizer_State)
     defer delete(macro)
+
+    tok_state_stack = make([dynamic]Tokenizer_State)
+    defer delete(tok_state_stack)
 
     scopes = make([dynamic]Scope)
     defer {
@@ -236,21 +311,26 @@ main :: proc() {
     // Append global scope
     append_nothing(&scopes)
 
-    for {
+    loop: for {
         token := scan(&tokenizer)
-        if token.kind == .EOF { break }
-
         #partial switch token.kind {
         case .At:
-            if !process_fn(&tokenizer) { os.exit(1) }
+            if !process_fn(&tokenizer) { print_macro_stacktrace_and_exit() }
             resize(&path_builder.buf, len(output_path))
 
         case .Def:
-            if !process_macro(&tokenizer) { os.exit(1) }
+            if !process_macro(&tokenizer) { print_macro_stacktrace_and_exit() }
+
+        case .Mod:
+            if !expand_macro(&tokenizer) { print_macro_stacktrace_and_exit() }
+
+        case .EOF:
+            if len(tok_state_stack) == 0 { break loop }
+            set_state(&tokenizer, pop(&tok_state_stack))
 
         case:
             default_error_handler(token.pos, "unexpected token '%v'", token.text)
-            os.exit(1)
+            print_macro_stacktrace_and_exit()
         }
     }
 }

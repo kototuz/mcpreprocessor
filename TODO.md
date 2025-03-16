@@ -60,5 +60,11 @@
 
 - [X] Remove usage of ';'
 
-- [ ] Expand macro in macro
+- [X] Better macro expansion. Processing statements in the macro body
+    HOW TO:
+        Source stack. The macro expansion is just a push to a source stack.
+        When the tokenizer meets `EOF` it pops source from the stack
 
+- [ ] Parametric macro
+
+- [ ] Undef macro

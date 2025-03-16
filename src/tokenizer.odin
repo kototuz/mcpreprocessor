@@ -545,7 +545,7 @@ scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
         kind, lit = scan_number(t, false)
 
     case:
-        if in_cmd_mode {
+        if in_cmd_mode && t.ch > 0 {
             kind = .Command
             for t.ch != '\n' && t.ch > 0 {
                 advance_rune(t)
