@@ -83,7 +83,7 @@ process_block :: proc(t: ^Tokenizer) -> bool {
     // Create .mcfunction file
     fn_file, err := os.open(strings.to_string(path_builder), os.O_CREATE | os.O_WRONLY, os.S_IRUSR | os.S_IWUSR)
     if err != nil {
-        fmt.eprintf("ERROR: Could not create file '%v': %v\n", strings.to_string(path_builder), err)
+        fmt.eprintf("ERROR: Could not create file '%v': %v\n", strings.to_string(path_builder), os.error_string(err))
         return false
     }
     defer os.close(fn_file)
@@ -279,7 +279,7 @@ main :: proc() {
     // Load source file bytes
     bytes, err := os.read_entire_file_or_err(os.args[1])
     if err != nil {
-        fmt.eprintf("ERROR: Could not load file '%v': %v\n", os.args[1], err)
+        fmt.eprintf("ERROR: Could not load file '%v': %v\n", os.args[1], os.error_string(err))
         os.exit(1)
     }
 
