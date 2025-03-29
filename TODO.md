@@ -82,6 +82,8 @@
     }
     ```
 
+- [X] Macro declarations inside blocks
+
 - [ ] Parametric macro
 
 - [ ] Undef macro

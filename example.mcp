@@ -25,6 +25,14 @@ fn main {
 
     # Nested functions
     fn baz {
+        # Neseted macro declarations
+        def hello
+            /say Hello, world
+            /say Well done!
+        end
+
+        @hello
+
         fn bar {
             /say Bar!
         }

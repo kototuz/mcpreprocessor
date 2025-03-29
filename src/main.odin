@@ -109,6 +109,9 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             process_fn(t) or_return
             resize(&path_builder.buf, curr_path_len)
 
+        case .Def:
+            process_macro(t) or_return
+
         case .Lambda:
             scope := &scopes[len(scopes) - 1]
             path_append(scope.lambda_count)
