@@ -1,67 +1,70 @@
-// Comments
-/* Comments */
+# Comments
 
-// Define macro 'foo'
-#def foo
-    say Hello, world
-    %baz // Expand macro 'baz'
-#end
+# Define macro 'foo'
+def foo
+    /say Hello, world
+    @baz # Expand macro 'baz'
+end
 
-#def baz
-    say OK!
-    %bar
-#end
+def baz
+    /say OK!
+    @bar
+end
 
-#def bar
-    say Good, Morning!
-#end
+def bar
+    /say Good, Morning!
+    /execute summon pig run function:test\
+    lambda {
+        /say I'm here
+    } /with entity @s
+end
 
-// Define function
-@main {
-    %foo // Expand macro 'foo'
+# Define function
+fn main {
+    @foo # Expand macro 'foo'
 
-    // Nested functions
-    @baz {
-        @bar {
-            say Bar!
+    # Nested functions
+    fn baz {
+        fn bar {
+            /say Bar!
         }
 
-        say Baz!
+        /say Baz!
     }
 
-    // Lambda functions
-    // NOTE: Lambda will be replaced with its name
-    //       e.g. in this example the code block will be processed
-    //       into `function test:main.0 with entity @s`
-    function test:\
-    #lambda {
-        say Hello, world!
-    } with entity @s
+    # Lambda functions
+    # NOTE: Lambda will be replaced with its name
+    #       e.g. in this example the code block will be processed
+    #       into `function test:main.0 with entity @s`
+    /function test:\
+    lambda {
+        /say Hello, world!
+    } /with entity @s
 
-    function test:\
-    #lambda {
-        say Hello, world!
+    /function test:\
+    lambda {
+        /say Hello, world!
 
-        // Nested lambda functions
-        function test:\
-        #lambda {
-            say Goodbye, world!
+        # Nested lambda functions
+        /function test:\
+        lambda {
+            /say Goodbye, world!
         }
     }
 
-    // Execute nested functions
-    function test:main.baz
-    function test:main.baz.bar
+    # Execute nested functions
+    /function test:main.baz
+    /function test:main.baz.bar
 
-    say Hello, world
-    $say Hello, world
-    execute as @s run function main:setup {a:12, b:13}
+    /say Hello, world
+    /$say Hello, world
+    /execute as @s run function main:setup {a:12, b:13}
 }
 
-@foo {
-    tellraw @s FIND IT!!!
+fn foo {
+    /tellraw @s FIND IT!!!
 }
 
-@baz {
-    say OK!
+fn baz {
+    /say OK!
 }

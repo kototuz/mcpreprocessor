@@ -9,7 +9,6 @@ Error_Handler :: #type proc(pos: Pos, fmt: string, args: ..any)
 Flag :: enum {
     Insert_Semicolon,
 }
-
 Flags :: distinct bit_set[Flag; u32]
 
 Tokenizer :: struct {
@@ -489,22 +488,15 @@ scan_number :: proc(t: ^Tokenizer, seen_decimal_point: bool) -> (Token_Kind, str
 }
 
 
-scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
+scan :: proc(t: ^Tokenizer) -> Token {
     skip_whitespace(t)
 
-    // Skip comments because we don't need them as tokens
-    loop: for t.ch == '/' { 
-        if t.offset+1 >= len(t.src) { break }
-        switch t.src[t.offset+1] {
-        case '/': fallthrough
-        case '*':
+    for t.ch == '#' {
+        for t.ch != '\n' && t.ch > 0 {
             advance_rune(t)
-            scan_comment(t)
-            skip_whitespace(t)
-
-        case:
-            break loop
         }
+        advance_rune(t)
+        skip_whitespace(t)
     }
 
     offset := t.offset
@@ -513,24 +505,17 @@ scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
     lit: string
     pos := offset_to_pos(t, offset)
 
-    // TODO: Maybe do with that something
     switch ch := t.ch; true {
-    case ch == '%':
-        kind = .Mod
-        advance_rune(t)
+    case ch == '/':
+        kind = .Command
+        for t.ch != '\n' && t.ch > 0 {
+            advance_rune(t)
+        }
+        lit = t.src[offset:t.offset]
 
-    case ch == '@':
-        kind = .At
-        advance_rune(t)
-
-    case ch == '}':
-        kind = .Close_Brace
-        advance_rune(t)
-
-    case ch == '#':
-        advance_rune(t)
+    case is_letter(ch):
         lit = scan_identifier(t)
-        #no_bounds_check { lit = lit[-1:] }
+        kind = .Ident
         check_keyword: if len(lit) > 1 {
             for keyword, i in custom_keyword_tokens {
                 if lit == keyword {
@@ -538,28 +523,11 @@ scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
                     break check_keyword
                 }
             }
-            error(t, offset, "unknown keyword '%v'", lit)
+            break check_keyword
         }
-
     case '0' <= ch && ch <= '9':
         kind, lit = scan_number(t, false)
-
     case:
-        if in_cmd_mode && t.ch > 0 {
-            kind = .Command
-            for t.ch != '\n' && t.ch > 0 {
-                advance_rune(t)
-            }
-            lit = t.src[offset:t.offset]
-            break
-        }
-
-        if is_letter(ch) {
-            kind = .Ident
-            lit = scan_identifier(t)
-            break
-        }
-
         advance_rune(t)
         switch ch {
         case -1:
@@ -610,9 +578,11 @@ scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
                     kind = .Range_Full
                 }
             }
+            case '@': kind = .At
             case '$': kind = .Dollar
             case '?': kind = .Question
             case '^': kind = .Pointer
+            case ';': kind = .Semicolon
             case ',': kind = .Comma
             case ':': kind = .Colon
             case '(': kind = .Open_Paren
@@ -620,6 +590,7 @@ scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
             case '[': kind = .Open_Bracket
             case ']': kind = .Close_Bracket
             case '{': kind = .Open_Brace
+            case '}': kind = .Close_Brace
             case '%':
                 kind = .Mod
                 switch t.ch {
@@ -684,25 +655,6 @@ scan :: proc(t: ^Tokenizer, in_cmd_mode := false) -> Token {
                 case '=':
                     advance_rune(t)
                     kind = .Sub_Eq
-                }
-            case '#':
-                kind = .Hash
-                if t.ch == '!' {
-                    kind = .Comment
-                    lit = scan_comment(t)
-                } else if t.ch == '+' {
-                    kind = .File_Tag
-                    lit = scan_file_tag(t)
-                }
-            case '/':
-                kind = .Quo
-                switch t.ch {
-                case '/', '*':
-                    kind = .Comment
-                    lit = scan_comment(t)
-                case '=':
-                    advance_rune(t)
-                    kind = .Quo_Eq
                 }
             case '<':
                 kind = .Lt

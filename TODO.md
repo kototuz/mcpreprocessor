@@ -65,6 +65,23 @@
         Source stack. The macro expansion is just a push to a source stack.
         When the tokenizer meets `EOF` it pops source from the stack
 
+- [X] Redesign the syntax
+    ```
+    def macro_a
+        /say Hello, world
+    end
+
+    # main function
+    fn main {
+        @macro_a
+        /say Ok
+        /function test:\
+        lambda {
+            /say Something...
+        } /with entity @s
+    }
+    ```
+
 - [ ] Parametric macro
 
 - [ ] Undef macro

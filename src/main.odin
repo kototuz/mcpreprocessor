@@ -97,15 +97,15 @@ process_block :: proc(t: ^Tokenizer) -> bool {
 
     // Process block content
     // TODO: Macro declaration in blocks
-    token := scan(t, true)
+    token := scan(t)
     loop: for {
         #partial switch token.kind {
         case .Command:
-            write_string(fn_file, token.text) or_return
+            write_string(fn_file, token.text[1:]) or_return
             write_string(fn_file, "\n") or_return
 
         // Function declaration
-        case .At:
+        case .Fn:
             process_fn(t) or_return
             resize(&path_builder.buf, curr_path_len)
 
@@ -118,13 +118,13 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             write_string(fn_file, " ") or_return
             process_block(t) or_return
             curr_line := t.line_count
-            token = scan(t, true)
+            token = scan(t)
             if token.kind != .Command || token.pos.line > curr_line { write_string(fn_file, "\n") or_return }
             resize(&path_builder.buf, curr_path_len)
             continue loop
 
         // Macro
-        case .Mod:
+        case .At:
             expand_macro(t) or_return
 
         case .EOF:
@@ -139,7 +139,7 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             break loop
         }
 
-        token = scan(t, true)
+        token = scan(t)
     }
 
     return true
@@ -185,22 +185,35 @@ scan_until_end :: proc(t: ^Tokenizer) -> (string, bool) {
     offset := t.offset
 
     for {
-        if t.ch == -1 {
-            error(t, t.offset, "'#end' was expected, but found 'EOF'")
+        tok := scan(t)
+
+        if tok.kind == .EOF {
+            default_error_handler(tok.pos, "unexpected end of file")
             return "", false
         }
 
-        if t.ch == '#' {
-            offset_end := t.offset - 1
-            advance_rune(t)
-            lit := scan_identifier(t)
-            if lit == "end" {
-                return t.src[offset:offset_end], true
-            }
-        } else {
-            advance_rune(t)
+        if tok.kind == .End {
+            return t.src[offset:tok.pos.offset], true
         }
     }
+
+    //for {
+    //    if t.ch == -1 {
+    //        error(t, t.offset, "'#end' was expected, but found 'EOF'")
+    //        return "", false
+    //    }
+    //
+    //    if t.ch == '#' {
+    //        offset_end := t.offset - 1
+    //        advance_rune(t)
+    //        lit := scan_identifier(t)
+    //        if lit == "end" {
+    //            return t.src[offset:offset_end], true
+    //        }
+    //    } else {
+    //        advance_rune(t)
+    //    }
+    //}
 }
 
 process_macro :: proc(t: ^Tokenizer) -> bool {
@@ -314,14 +327,14 @@ main :: proc() {
     loop: for {
         token := scan(&tokenizer)
         #partial switch token.kind {
-        case .At:
+        case .Fn:
             if !process_fn(&tokenizer) { print_macro_stacktrace_and_exit() }
             resize(&path_builder.buf, len(output_path))
 
         case .Def:
             if !process_macro(&tokenizer) { print_macro_stacktrace_and_exit() }
 
-        case .Mod:
+        case .At:
             if !expand_macro(&tokenizer) { print_macro_stacktrace_and_exit() }
 
         case .EOF:
