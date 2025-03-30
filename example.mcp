@@ -19,9 +19,19 @@ def bar
     } /with entity @s
 end
 
+# Define parametric macro
+def print(msg)
+    /say \
+    $msg # expand parameter
+end
+
 # Define function
 fn main {
     @foo # Expand macro 'foo'
+
+    # Execute parametric macro 'print'
+    # NOTE: Parametric macro accepts only strings as arguments
+    @print("Parametric macro")
 
     # Nested functions
     fn baz {

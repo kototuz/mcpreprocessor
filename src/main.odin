@@ -22,11 +22,22 @@ Tokenizer_State :: struct {
     insert_semicolon: bool,
 }
 
+Macro :: struct {
+    tok_state: Tokenizer_State,
+    params:    [dynamic]Macro_Param,
+}
+
+Macro_Param :: struct {
+    name:  string,
+    value: string,
+}
+
 EXTENSION     :: ".mcfunction"
 
 output_path:     string
 path_builder:    strings.Builder
-macro:           map[string]Tokenizer_State // map[<macro-name>]<macro_body>
+macro:           map[string]Macro
+macro_params_stack: [dynamic][]Macro_Param
 scopes:          [dynamic]Scope
 tok_state_stack: [dynamic]Tokenizer_State
 
@@ -112,6 +123,22 @@ process_block :: proc(t: ^Tokenizer) -> bool {
         case .Def:
             process_macro(t) or_return
 
+        case .Dollar:
+            token = scan(t)
+            expect_token_kind(token, .Ident) or_return
+            m_params := macro_params_stack[len(macro_params_stack)-1]
+            for mp in m_params {
+                if mp.name == token.text {
+                    write_string(fn_file, mp.value)
+                    curr_line := t.line_count
+                    token = scan(t)
+                    if token.kind != .Command || token.pos.line > curr_line { write_string(fn_file, "\n") or_return }
+                    continue loop
+                }
+            }
+            default_error_handler(token.pos, "parameter '%v' is not declared", token.text)
+            return false
+
         case .Lambda:
             scope := &scopes[len(scopes) - 1]
             path_append(scope.lambda_count)
@@ -136,6 +163,7 @@ process_block :: proc(t: ^Tokenizer) -> bool {
                 return false
             }
             set_state(t, pop(&tok_state_stack))
+            pop(&macro_params_stack)
 
         case:
             expect_token_kind(token, .Close_Brace) or_return
@@ -151,14 +179,49 @@ process_block :: proc(t: ^Tokenizer) -> bool {
 expand_macro :: proc(t: ^Tokenizer) -> bool {
     token := scan(t)
     expect_token_kind(token, .Ident) or_return
-    tok_state, ok := macro[token.text]
+    macro_name := token.text
+    m, ok := &macro[macro_name]
     if !ok {
-        default_error_handler(token.pos, "macro '%v' is not defined", token.text)
+        default_error_handler(token.pos, "macro '%v' is not defined", macro_name)
         return false
     }
 
+    if len(m.params) > 0 {
+        if scan(t).kind != .Open_Paren {
+            default_error_handler(token.pos, "macro '%v' is parametric, so you need to specify arguments", macro_name)
+            return false
+        }
+
+        arg_count := 0
+        loop: for {
+            token = scan(t)
+            if token.kind != .String {
+                default_error_handler(token.pos, "argument was expected but found '%v'", token.text)
+                return false
+            }
+
+            m.params[arg_count].value = token.text[1:len(token.text)-1]
+            arg_count += 1
+
+            token = scan(t)
+            #partial switch token.kind {
+            case .Comma:
+            case .Close_Paren: break loop
+            case:
+                default_error_handler(token.pos, "unexpected token '%v'", token.text)
+                return false
+            }
+        }
+
+        if arg_count != len(m.params) {
+            default_error_handler(token.pos, "expected %v arguments but found only %v", len(m.params), arg_count)
+            return false
+        }
+    }
+
     append(&tok_state_stack, get_state(t^))
-    set_state(t, tok_state)
+    set_state(t, m.tok_state)
+    append(&macro_params_stack, m.params[:])
 
     return true
 }
@@ -231,23 +294,52 @@ process_macro :: proc(t: ^Tokenizer) -> bool {
         return false
     }
 
+    m := Macro{}
+
     // Get the tokenizer state in macro definition.
     // It is used to implement recursive macro expansion
-    tok_state := get_state(t^)
+    m.tok_state = get_state(t^)
+
+    // Process macro parameter names if they are specified
+    token = scan(t)
+    if token.kind == .Open_Paren {
+        loop: for {
+            token = scan(t)
+            if token.kind != .Ident {
+                default_error_handler(token.pos, "parameter was expected but found '%v'", token.text)
+                return false
+            }
+
+            append(&m.params, Macro_Param{name=token.text})
+
+            token = scan(t)
+            #partial switch token.kind {
+            case .Comma:
+            case .Close_Paren: break loop
+            case:
+                default_error_handler(token.pos, "unexpected token '%v'", token.text)
+                return false
+            }
+        }
+
+        m.tok_state = get_state(t^)
+    } else {
+        set_state(t, m.tok_state)
+    }
 
     // Skip until newline to get the macro body start line
     for t.ch != '\n' { advance_rune(t) }
 
     // Scan the macro body
     macro_body := scan_until_end(t) or_return
-    tok_state.src = macro_body
+    m.tok_state.src = macro_body
 
-    tok_state.offset = 0
-    tok_state.read_offset = 0
-    tok_state.line_count -= 1
-    tok_state.line_offset = 0
+    m.tok_state.offset = 0
+    m.tok_state.read_offset = 0
+    m.tok_state.line_count -= 1
+    m.tok_state.line_offset = 0
 
-    macro[macro_name] = tok_state
+    macro[macro_name] = m
 
     return true
 }
@@ -310,8 +402,16 @@ main :: proc() {
     defer strings.builder_destroy(&path_builder)
     strings.write_string(&path_builder, output_path)
 
-    macro = make(map[string]Tokenizer_State)
-    defer delete(macro)
+    macro = make(map[string]Macro)
+    defer {
+        for _, v in macro {
+            delete(v.params)
+        }
+        delete(macro)
+    }
+
+    macro_params_stack = make([dynamic][]Macro_Param)
+    defer delete(macro_params_stack)
 
     tok_state_stack = make([dynamic]Tokenizer_State)
     defer delete(tok_state_stack)
@@ -343,6 +443,7 @@ main :: proc() {
         case .EOF:
             if len(tok_state_stack) == 0 { break loop }
             set_state(&tokenizer, pop(&tok_state_stack))
+            pop(&macro_params_stack)
 
         case:
             default_error_handler(token.pos, "unexpected token '%v'", token.text)
