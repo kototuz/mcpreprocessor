@@ -88,7 +88,7 @@ Token_Kind :: enum u32 {
     Increment,          // ++
     Decrement,          // --
     Arrow_Right,        // ->
-    Undef,              // ---
+    Undefine,           // ---
 
     B_Comparison_Begin,
     Cmp_Eq, // ==
@@ -163,6 +163,7 @@ COUNT,
 B_Custom_Keyword_Begin = COUNT+1,
     End,
     Def,
+    Undef,
     Lambda,
     Fn,
 }
@@ -301,6 +302,7 @@ tokens := [Token_Kind.COUNT]string {
 custom_keyword_tokens: []string = {
     "end",
     "def",
+    "undef",
     "lambda",
     "fn",
 }

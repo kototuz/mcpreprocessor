@@ -112,6 +112,17 @@ process_block :: proc(t: ^Tokenizer) -> bool {
         case .Def:
             process_macro(t) or_return
 
+        case .Undef:
+            token = scan(t)
+            expect_token_kind(token, .Ident) or_return
+            m, ok := macro[token.text]
+            if !ok {
+                default_error_handler(token.pos, "macro '%v' is not defined", token.text)
+                return false
+            }
+            delete(m.params)
+            delete_key(&macro, token.text)
+
         case .Dollar:
             token = scan(t)
             expect_token_kind(token, .Ident) or_return

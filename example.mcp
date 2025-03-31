@@ -25,9 +25,22 @@ def print(msg)
     $msg # expand parameter
 end
 
+def list_of_mobs
+    @x("zombie")
+    @x("pig")
+    @x("creeper")
+end
+
 # Define function
 fn main {
     @foo # Expand macro 'foo'
+
+    def x(mob)
+        /summon \
+        $mob
+    end
+    @list_of_mobs
+    undef x
 
     # Execute parametric macro 'print'
     # NOTE: Parametric macro accepts only strings as arguments
