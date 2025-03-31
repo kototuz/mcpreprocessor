@@ -98,7 +98,6 @@ process_block :: proc(t: ^Tokenizer) -> bool {
     defer pop(&scopes)
 
     // Process block content
-    // TODO: Macro declaration in blocks
     token := scan(t)
     loop: for {
         #partial switch token.kind {
