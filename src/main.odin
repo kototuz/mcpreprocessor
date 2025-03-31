@@ -50,15 +50,6 @@ expect_token_kind :: proc(tok: Token, k: Token_Kind) -> bool {
     return true
 }
 
-write_string :: proc(f: os.Handle, str: string) -> bool {
-    _, err := os.write_string(f, str)
-    if err != nil {
-        fmt.eprintf("ERROR: Could not write string to file: %v\n", err)
-        return false
-    }
-    return true
-}
-
 path_append_uint :: proc(v: uint) {
     if strings.builder_len(path_builder) > len(output_path) {
         strings.write_byte(&path_builder, '.')
@@ -112,8 +103,7 @@ process_block :: proc(t: ^Tokenizer) -> bool {
     loop: for {
         #partial switch token.kind {
         case .Command:
-            write_string(fn_file, token.text[1:]) or_return
-            write_string(fn_file, "\n") or_return
+            fmt.fprintln(fn_file, token.text[1:])
 
         // Function declaration
         case .Fn:
@@ -129,10 +119,10 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             m_params := macro_params_stack[len(macro_params_stack)-1]
             for mp in m_params {
                 if mp.name == token.text {
-                    write_string(fn_file, mp.value)
+                    fmt.fprint(fn_file, mp.value)
                     curr_line := t.line_count
                     token = scan(t)
-                    if token.kind != .Command || token.pos.line > curr_line { write_string(fn_file, "\n") or_return }
+                    if token.kind != .Command || token.pos.line > curr_line { fmt.fprintln(fn_file) }
                     continue loop
                 }
             }
@@ -144,12 +134,11 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             path_append(scope.lambda_count)
             scope.lambda_count += 1
             lambda_call_name := path_builder.buf[len(output_path)+1 : len(path_builder.buf) - len(EXTENSION)]
-            write_string(fn_file, string(lambda_call_name)) or_return
-            write_string(fn_file, " ") or_return
+            fmt.fprintf(fn_file, "%v ", string(lambda_call_name))
             process_block(t) or_return
             curr_line := t.line_count
             token = scan(t)
-            if token.kind != .Command || token.pos.line > curr_line { write_string(fn_file, "\n") or_return }
+            if token.kind != .Command || token.pos.line > curr_line { fmt.fprintln(fn_file) }
             resize(&path_builder.buf, curr_path_len)
             continue loop
 
