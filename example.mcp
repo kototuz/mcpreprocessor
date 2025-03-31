@@ -25,6 +25,10 @@ def print(msg)
     $msg # expand parameter
 end
 
+# NOTE: mcpreprocessor doesn't process the body of macro,
+#       it just saves the body as source for the tokenizer.
+#       When macro is called it expands its source and then
+#       processes. It allows to implement `X macro`
 def list_of_mobs
     @x("zombie")
     @x("pig")
@@ -35,12 +39,13 @@ end
 fn main {
     @foo # Expand macro 'foo'
 
+    # Example of `X macro` https://en.wikipedia.org/wiki/X_macro
     def x(mob)
         /summon \
         $mob
     end
     @list_of_mobs
-    undef x
+    undef x # undef macro 'x'
 
     # Execute parametric macro 'print'
     # NOTE: Parametric macro accepts only strings as arguments
