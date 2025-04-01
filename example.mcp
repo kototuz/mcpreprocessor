@@ -37,6 +37,13 @@ end
 fn main {
     @foo # Expand macro 'foo'
 
+    # Write double quotes using '\"'
+    "tellraw @a {\"text\":\"Hello, world\"}"
+
+    # You can define constants using macro
+    def PI "3.14" end
+    "say PI is " @PI
+
     # Example of `X macro` https://en.wikipedia.org/wiki/X_macro
     def x(mob) "summon " $mob end
     @list_of_mobs
