@@ -164,9 +164,12 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             set_state(t, pop(&tok_state_stack))
             pop(&macro_params_stack)
 
-        case:
-            expect_token_kind(token, .Close_Brace) or_return
+        case .Close_Brace:
             break loop
+
+        case:
+            default_error_handler(token.pos, "unexpected token '%v'", token.text)
+            return false
         }
 
         token = scan(t)
@@ -426,6 +429,8 @@ main :: proc() {
     // Append global scope
     append_nothing(&scopes)
 
+    // TODO: Maybe we need to implement macro parameters and `macro undef`
+    //       in the global scope, but i don't see the usage of this yet 
     loop: for {
         token := scan(&tokenizer)
         #partial switch token.kind {
