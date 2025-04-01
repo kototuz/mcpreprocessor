@@ -368,7 +368,7 @@ process_macro :: proc(t: ^Tokenizer) -> bool {
     }
 
     // Skip until newline to get the macro body start line
-    for t.ch != '\n' { advance_rune(t) }
+    //for t.ch != '\n' { advance_rune(t) }
 
     // Scan the macro body
     macro_body := scan_until_end(t) or_return

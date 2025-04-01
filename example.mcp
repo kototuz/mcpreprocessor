@@ -38,9 +38,7 @@ fn main {
     @foo # Expand macro 'foo'
 
     # Example of `X macro` https://en.wikipedia.org/wiki/X_macro
-    def x(mob)
-        "summon " $mob
-    end
+    def x(mob) "summon " $mob end
     @list_of_mobs
     undef x # undef macro 'x'
 
