@@ -86,4 +86,12 @@
 
 - [X] Parametric macro
 
-- [ ] Undef macro
+- [X] Undef macro
+
+- [X] Redesign of syntax again
+    ```
+    fn main {
+        "say Hello world"
+        "function test:" lambda { "say Hello, world" }
+    }
+    ```

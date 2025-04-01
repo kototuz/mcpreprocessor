@@ -13,18 +13,18 @@ This code will be compiled into `.mcfunction` files
 
 ```
 fn main {
-    /say hello world
-    /say Good morning
+    "say hello world"
+    "say Good morning"
 }
 
 fn foo {
-    /summon pig
-    /summon zombie
+    "summon pig"
+    "summon zombie"
 }
 
 fn baz {
-    /summon pig
-    /summon zombie
+    "summon pig"
+    "summon zombie"
 }
 ```
 

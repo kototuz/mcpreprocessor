@@ -79,6 +79,41 @@ path_append :: proc{
     path_append_str,
 }
 
+find_param_by_name :: proc(params: []Macro_Param, name: string) -> (string, bool) {
+    for p in params {
+        if p.name == name {
+            return p.value, true
+        }
+    }
+    return "", false
+}
+
+// NOTE: Writes `newline` only if there is no something on the current line
+write_newline :: proc(t: ^Tokenizer, f: os.Handle) {
+    state := get_state(t^)
+    defer set_state(t, state)
+    curr_line := t.line_count
+
+    token := scan(t)
+
+    #partial switch token.kind {
+    case .String:
+    case .Lambda:
+    case .At:
+    case .Dollar:
+
+    case .EOF: return
+
+    case:
+        fmt.fprintln(f)
+        return
+    }
+
+    if token.pos.line != curr_line {
+        fmt.fprintln(f)
+    }
+}
+
 process_block :: proc(t: ^Tokenizer) -> bool {
     expect_token_kind(scan(t), .Open_Brace) or_return
 
@@ -98,11 +133,21 @@ process_block :: proc(t: ^Tokenizer) -> bool {
     defer pop(&scopes)
 
     // Process block content
-    token := scan(t)
     loop: for {
+        token := scan(t)
         #partial switch token.kind {
-        case .Command:
-            fmt.fprintln(fn_file, token.text[1:])
+        case .String:
+            // Write string consider double quotes
+            for i := 1; i < len(token.text) - 1; {
+                if token.text[i] == '\\' {
+                    fmt.fprint(fn_file, rune(token.text[i+1]))
+                    i += 2
+                } else {
+                    fmt.fprint(fn_file, rune(token.text[i]))
+                    i += 1
+                }
+            }
+            write_newline(t, fn_file)
 
         // Function declaration
         case .Fn:
@@ -123,21 +168,18 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             delete(m.params)
             delete_key(&macro, token.text)
 
+        // Macro parameter
         case .Dollar:
             token = scan(t)
             expect_token_kind(token, .Ident) or_return
             m_params := macro_params_stack[len(macro_params_stack)-1]
-            for mp in m_params {
-                if mp.name == token.text {
-                    fmt.fprint(fn_file, mp.value)
-                    curr_line := t.line_count
-                    token = scan(t)
-                    if token.kind != .Command || token.pos.line > curr_line { fmt.fprintln(fn_file) }
-                    continue loop
-                }
+            param_value, found := find_param_by_name(m_params[:], token.text)
+            if !found {
+                default_error_handler(token.pos, "parameter '%v' is not declared", token.text)
+                return false
             }
-            default_error_handler(token.pos, "parameter '%v' is not declared", token.text)
-            return false
+            fmt.fprint(fn_file, param_value)
+            write_newline(t, fn_file)
 
         case .Lambda:
             scope := &scopes[len(scopes) - 1]
@@ -146,11 +188,8 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             lambda_call_name := path_builder.buf[len(output_path)+1 : len(path_builder.buf) - len(EXTENSION)]
             fmt.fprintf(fn_file, "%v ", string(lambda_call_name))
             process_block(t) or_return
-            curr_line := t.line_count
-            token = scan(t)
-            if token.kind != .Command || token.pos.line > curr_line { fmt.fprintln(fn_file) }
             resize(&path_builder.buf, curr_path_len)
-            continue loop
+            write_newline(t, fn_file)
 
         // Macro
         case .At:
@@ -162,6 +201,7 @@ process_block :: proc(t: ^Tokenizer) -> bool {
                 return false
             }
             set_state(t, pop(&tok_state_stack))
+            write_newline(t, fn_file)
             pop(&macro_params_stack)
 
         case .Close_Brace:
@@ -171,8 +211,6 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             default_error_handler(token.pos, "unexpected token '%v'", token.text)
             return false
         }
-
-        token = scan(t)
     }
 
     return true

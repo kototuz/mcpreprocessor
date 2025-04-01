@@ -41,7 +41,6 @@ Token_Kind :: enum u32 {
     Imag,    // 123.45i
     Rune,    // 'a'
     String,  // "abc"
-    Command, // (in command mode) 
     B_Literal_End,
 
     B_Operator_Begin,
@@ -181,7 +180,6 @@ tokens := [Token_Kind.COUNT]string {
     "imaginary",
     "rune",
     "string",
-    "command",
     "",
 
     "",

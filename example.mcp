@@ -2,27 +2,25 @@
 
 # Define macro 'foo'
 def foo
-    /say Hello, world
+    "say Hello, world"
     @baz # Expand macro 'baz'
 end
 
 def baz
-    /say OK!
+    "say OK!"
     @bar
 end
 
 def bar
-    /say Good, Morning!
-    /execute summon pig run function:test\
-    lambda {
-        /say I'm here
-    } /with entity @s
+    "say Good, Morning!"
+    "execute summon pig run function test:" lambda {
+        "say I'm here"
+    } "with entity @s"
 end
 
 # Define parametric macro
 def print(msg)
-    /say \
-    $msg # expand parameter
+    "say " $msg # expand parameter
 end
 
 # NOTE: mcpreprocessor doesn't process the body of macro,
@@ -41,8 +39,7 @@ fn main {
 
     # Example of `X macro` https://en.wikipedia.org/wiki/X_macro
     def x(mob)
-        /summon \
-        $mob
+        "summon " $mob
     end
     @list_of_mobs
     undef x # undef macro 'x'
@@ -55,52 +52,45 @@ fn main {
     fn baz {
         # Neseted macro declarations
         def hello
-            /say Hello, world
-            /say Well done!
+            "say Hello, world"
+            "say Well done!"
         end
 
         @hello
 
         fn bar {
-            /say Bar!
+            "say Bar!"
         }
 
-        /say Baz!
+        "say Baz!"
     }
 
     # Lambda functions
     # NOTE: Lambda will be replaced with its name
     #       e.g. in this example the code block will be processed
     #       into `function test:main.0 with entity @s`
-    /function test:\
-    lambda {
-        /say Hello, world!
-    } /with entity @s
+    "function test:" lambda { "say Hello, world!" } "with entity @s"
 
-    /function test:\
-    lambda {
-        /say Hello, world!
+    "function test:" lambda {
+        "say Hello, world!"
 
         # Nested lambda functions
-        /function test:\
-        lambda {
-            /say Goodbye, world!
-        }
+        "function test:" lambda { "say Goodbye, world!" }
     }
 
     # Execute nested functions
-    /function test:main.baz
-    /function test:main.baz.bar
+    "function test:main.baz"
+    "function test:main.baz.bar"
 
-    /say Hello, world
-    /$say Hello, world
-    /execute as @s run function main:setup {a:12, b:13}
+    "say Hello, world"
+    "$say Hello, world"
+    "execute as @s run function main:setup {a:12, b:13}"
 }
 
 fn foo {
-    /tellraw @s FIND IT!!!
+    "tellraw @s FIND IT!!!"
 }
 
 fn baz {
-    /say OK!
+    "say OK!"
 }

@@ -491,6 +491,7 @@ scan_number :: proc(t: ^Tokenizer, seen_decimal_point: bool) -> (Token_Kind, str
 scan :: proc(t: ^Tokenizer) -> Token {
     skip_whitespace(t)
 
+    // Skip comments
     for t.ch == '#' {
         for t.ch != '\n' && t.ch > 0 {
             advance_rune(t)
@@ -506,13 +507,6 @@ scan :: proc(t: ^Tokenizer) -> Token {
     pos := offset_to_pos(t, offset)
 
     switch ch := t.ch; true {
-    case ch == '/':
-        kind = .Command
-        for t.ch != '\n' && t.ch > 0 {
-            advance_rune(t)
-        }
-        lit = t.src[offset:t.offset]
-
     case is_letter(ch):
         lit = scan_identifier(t)
         kind = .Ident
