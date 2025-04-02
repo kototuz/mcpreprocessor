@@ -170,6 +170,10 @@ process_block :: proc(t: ^Tokenizer) -> bool {
 
         // Macro parameter
         case .Dollar:
+            if len(macro_params_stack) == 0 {
+                default_error_handler(token.pos, "trying to get parameter outside of macro")
+                return false
+            }
             token = scan(t)
             expect_token_kind(token, .Ident) or_return
             m_params := macro_params_stack[len(macro_params_stack)-1]
