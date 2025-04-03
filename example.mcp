@@ -53,6 +53,12 @@ fn main {
     # NOTE: Parametric macro accepts only strings as arguments
     print("Parametric macro")
 
+    # You can pass anything as a parameter
+    # NOTE: Every parameter will be placed as it is in place
+    #       of the parameter in the macro definition
+    def TEXT "Something" end
+    print(TEXT" else")
+
     # Nested functions
     fn baz {
         # Neseted macro declarations

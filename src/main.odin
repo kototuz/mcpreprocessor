@@ -29,7 +29,7 @@ Macro :: struct {
 
 Macro_Param :: struct {
     name:  string,
-    value: string,
+    value: Tokenizer_State,
 }
 
 EXTENSION     :: ".mcfunction"
@@ -79,13 +79,13 @@ path_append :: proc{
     path_append_str,
 }
 
-find_param_by_name :: proc(params: []Macro_Param, name: string) -> (string, bool) {
+find_param_by_name :: proc(params: []Macro_Param, name: string) -> (Tokenizer_State, bool) {
     for p in params {
         if p.name == name {
             return p.value, true
         }
     }
-    return "", false
+    return {}, false
 }
 
 // NOTE: Writes `newline` only if there is no something on the current line
@@ -182,8 +182,9 @@ process_block :: proc(t: ^Tokenizer) -> bool {
                 default_error_handler(token.pos, "parameter '%v' is not declared", token.text)
                 return false
             }
-            fmt.fprint(fn_file, param_value)
-            write_newline(t, fn_file)
+            append(&tok_state_stack, get_state(t^))
+            set_state(t, param_value)
+            append(&macro_params_stack, []Macro_Param{})
 
         case .Lambda:
             scope := &scopes[len(scopes) - 1]
@@ -220,6 +221,31 @@ process_block :: proc(t: ^Tokenizer) -> bool {
     return true
 }
 
+scan_arg :: proc(t: ^Tokenizer) -> (state: Tokenizer_State, last: bool, ok: bool = true) {
+    state = get_state(t^)
+    token := scan(t)
+    for {
+        #partial switch token.kind {
+        case .Comma:
+            last = false
+            state.src = state.src[:token.pos.offset]
+            return
+
+        case .Close_Paren:
+            last = true
+            state.src = state.src[:token.pos.offset]
+            return
+
+        case .EOF:
+            ok = false
+            default_error_handler(token.pos, "unexpected end of file")
+            return
+        }
+
+        token = scan(t)
+    }
+}
+
 expand_macro :: proc(t: ^Tokenizer, macro_name: string, pos: Pos) -> bool {
     m, ok := &macro[macro_name]
     if !ok {
@@ -235,24 +261,11 @@ expand_macro :: proc(t: ^Tokenizer, macro_name: string, pos: Pos) -> bool {
         }
 
         arg_count := 0
-        loop: for {
-            token = scan(t)
-            if token.kind != .String {
-                default_error_handler(token.pos, "argument was expected but found '%v'", token.text)
-                return false
-            }
-
-            m.params[arg_count].value = token.text[1:len(token.text)-1]
+        for {
+            arg_tok_state, is_last := scan_arg(t) or_return
+            m.params[arg_count].value = arg_tok_state
             arg_count += 1
-
-            token = scan(t)
-            #partial switch token.kind {
-            case .Comma:
-            case .Close_Paren: break loop
-            case:
-                default_error_handler(token.pos, "unexpected token '%v'", token.text)
-                return false
-            }
+            if is_last { break }
         }
 
         if arg_count != len(m.params) {
