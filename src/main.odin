@@ -99,7 +99,7 @@ write_newline :: proc(t: ^Tokenizer, f: os.Handle) {
     #partial switch token.kind {
     case .String:
     case .Lambda:
-    case .At:
+    case .Ident:
     case .Dollar:
 
     case .EOF: return
@@ -196,8 +196,8 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             write_newline(t, fn_file)
 
         // Macro
-        case .At:
-            expand_macro(t) or_return
+        case .Ident:
+            expand_macro(t, token.text, token.pos) or_return
 
         case .EOF:
             if len(tok_state_stack) == 0 {
@@ -220,16 +220,14 @@ process_block :: proc(t: ^Tokenizer) -> bool {
     return true
 }
 
-expand_macro :: proc(t: ^Tokenizer) -> bool {
-    token := scan(t)
-    expect_token_kind(token, .Ident) or_return
-    macro_name := token.text
+expand_macro :: proc(t: ^Tokenizer, macro_name: string, pos: Pos) -> bool {
     m, ok := &macro[macro_name]
     if !ok {
-        default_error_handler(token.pos, "macro '%v' is not defined", macro_name)
+        default_error_handler(pos, "macro '%v' is not defined", macro_name)
         return false
     }
 
+    token: Token
     if len(m.params) > 0 {
         if scan(t).kind != .Open_Paren {
             default_error_handler(token.pos, "macro '%v' is parametric, so you need to specify arguments", macro_name)
@@ -456,8 +454,8 @@ main :: proc() {
         case .Def:
             if !process_macro(&tokenizer) { print_macro_stacktrace_and_exit() }
 
-        case .At:
-            if !expand_macro(&tokenizer) { print_macro_stacktrace_and_exit() }
+        case .Ident:
+            if !expand_macro(&tokenizer, token.text, token.pos) { print_macro_stacktrace_and_exit() }
 
         case .EOF:
             if len(tok_state_stack) == 0 { break loop }

@@ -3,12 +3,12 @@
 # Define macro 'foo'
 def foo
     "say Hello, world"
-    @baz # Expand macro 'baz'
+    baz # Expand macro 'baz'
 end
 
 def baz
     "say OK!"
-    @bar
+    bar
 end
 
 def bar
@@ -28,30 +28,30 @@ end
 #       When macro is called it expands its source and then
 #       processes. It allows to implement `X macro`
 def list_of_mobs
-    @x("zombie")
-    @x("pig")
-    @x("creeper")
+    x("zombie")
+    x("pig")
+    x("creeper")
 end
 
 # Define function
 fn main {
-    @foo # Expand macro 'foo'
+    foo # Expand macro 'foo'
 
     # Write double quotes using '\"'
     "tellraw @a {\"text\":\"Hello, world\"}"
 
     # You can define constants using macro
     def PI "3.14" end
-    "say PI is " @PI
+    "say PI is " PI
 
     # Example of `X macro` https://en.wikipedia.org/wiki/X_macro
     def x(mob) "summon " $mob end
-    @list_of_mobs
+    list_of_mobs
     undef x # undef macro 'x'
 
     # Execute parametric macro 'print'
     # NOTE: Parametric macro accepts only strings as arguments
-    @print("Parametric macro")
+    print("Parametric macro")
 
     # Nested functions
     fn baz {
@@ -61,7 +61,7 @@ fn main {
             "say Well done!"
         end
 
-        @hello
+        hello
 
         fn bar {
             "say Bar!"
