@@ -291,39 +291,24 @@ process_fn :: proc(t: ^Tokenizer) -> bool {
     return true
 }
 
-scan_until_end :: proc(t: ^Tokenizer) -> (string, bool) {
-    offset := t.offset
-
+scan_until_end :: proc(t: ^Tokenizer) -> (state: Tokenizer_State, ok: bool) {
+    state = get_state(t^)
+    token := scan(t)
     for {
-        tok := scan(t)
-
-        if tok.kind == .EOF {
-            default_error_handler(tok.pos, "unexpected end of file")
-            return "", false
+        if token.kind == .EOF {
+            default_error_handler(token.pos, "unexpected end of file")
+            ok = false
+            return
         }
 
-        if tok.kind == .End {
-            return t.src[offset:tok.pos.offset], true
+        if token.kind == .End {
+            ok = true
+            state.src = state.src[:token.pos.offset]
+            return
         }
+
+        token = scan(t)
     }
-
-    //for {
-    //    if t.ch == -1 {
-    //        error(t, t.offset, "'#end' was expected, but found 'EOF'")
-    //        return "", false
-    //    }
-    //
-    //    if t.ch == '#' {
-    //        offset_end := t.offset - 1
-    //        advance_rune(t)
-    //        lit := scan_identifier(t)
-    //        if lit == "end" {
-    //            return t.src[offset:offset_end], true
-    //        }
-    //    } else {
-    //        advance_rune(t)
-    //    }
-    //}
 }
 
 process_macro :: proc(t: ^Tokenizer) -> bool {
@@ -340,8 +325,7 @@ process_macro :: proc(t: ^Tokenizer) -> bool {
 
     m := Macro{}
 
-    // Get the tokenizer state in macro definition.
-    // It is used to implement recursive macro expansion
+    // Save state to check macro parameters
     m.tok_state = get_state(t^)
 
     // Process macro parameter names if they are specified
@@ -365,23 +349,12 @@ process_macro :: proc(t: ^Tokenizer) -> bool {
                 return false
             }
         }
-
-        m.tok_state = get_state(t^)
     } else {
         set_state(t, m.tok_state)
     }
 
-    // Skip until newline to get the macro body start line
-    //for t.ch != '\n' { advance_rune(t) }
-
-    // Scan the macro body
-    macro_body := scan_until_end(t) or_return
-    m.tok_state.src = macro_body
-
-    m.tok_state.offset = 0
-    m.tok_state.read_offset = 0
-    m.tok_state.line_count -= 1
-    m.tok_state.line_offset = 0
+    // Save the tokenizer state when it on the macro body source
+    m.tok_state = scan_until_end(t) or_return
 
     macro[macro_name] = m
 
