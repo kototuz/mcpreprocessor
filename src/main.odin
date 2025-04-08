@@ -224,14 +224,20 @@ process_block :: proc(t: ^Tokenizer) -> bool {
 scan_arg :: proc(t: ^Tokenizer) -> (state: Tokenizer_State, last: bool, ok: bool = true) {
     state = get_state(t^)
     token := scan(t)
+    depth := 0
     for {
         #partial switch token.kind {
         case .Comma:
+            if depth > 0 { break }
             last = false
             state.src = state.src[:token.pos.offset]
             return
 
+        case .Open_Paren:
+            depth += 1 
+
         case .Close_Paren:
+            if depth > 0 { depth -= 1; break }
             last = true
             state.src = state.src[:token.pos.offset]
             return

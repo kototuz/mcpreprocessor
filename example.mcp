@@ -37,6 +37,10 @@ end
 fn main {
     foo # Expand macro 'foo'
 
+    # Pass a parametric macro as an argument of a parametric macro
+    def err(msg) "[ERROR] "$msg end
+    print(err("Something went wrong"))
+
     # Write double quotes using '\"'
     "tellraw @a {\"text\":\"Hello, world\"}"
 
