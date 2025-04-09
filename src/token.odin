@@ -165,6 +165,7 @@ B_Custom_Keyword_Begin = COUNT+1,
     Undef,
     Lambda,
     Fn,
+    Include,
 }
 
 tokens := [Token_Kind.COUNT]string {
@@ -303,6 +304,7 @@ custom_keyword_tokens: []string = {
     "undef",
     "lambda",
     "fn",
+    "include"
 }
 
 is_newline :: proc(tok: Token) -> bool {

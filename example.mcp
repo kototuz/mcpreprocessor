@@ -1,5 +1,10 @@
 # Comments
 
+def NAMESPACE "test" end
+
+# NOTE: You can use 'include' only in the global space
+include "example2.mcp"
+
 # Define macro 'foo'
 def foo
     "say Hello, world"
@@ -36,6 +41,8 @@ end
 # Define function
 fn main {
     foo # Expand macro 'foo'
+
+    "function "with_namespace("main")
 
     # Pass a parametric macro as an argument of a parametric macro
     def err(msg) "[ERROR] "$msg end

@@ -1,0 +1,1 @@
+def with_namespace(name) NAMESPACE":"$name end

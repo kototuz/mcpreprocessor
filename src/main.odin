@@ -13,6 +13,7 @@ Scope :: struct {
 }
 
 Tokenizer_State :: struct {
+    path:        string,
     src:         string,
     ch:          rune,
     offset:      int,
@@ -40,6 +41,7 @@ macro:           map[string]Macro
 macro_params_stack: [dynamic][]Macro_Param
 scopes:          [dynamic]Scope
 tok_state_stack: [dynamic]Tokenizer_State
+include_file_sources: [dynamic][]byte
 
 expect_token_kind :: proc(tok: Token, k: Token_Kind) -> bool {
     if tok.kind != k {
@@ -199,13 +201,11 @@ process_block :: proc(t: ^Tokenizer) -> bool {
             expand_macro(t, token.text, token.pos) or_return
 
         case .EOF:
-            if len(tok_state_stack) == 0 {
+            if !pop_state(t) {
                 error(t, t.offset, "Unclosed block")
                 return false
             }
-            set_state(t, pop(&tok_state_stack))
             write_newline(t, fn_file)
-            pop(&macro_params_stack)
 
         case .Close_Brace:
             break loop
@@ -374,14 +374,40 @@ process_macro :: proc(t: ^Tokenizer) -> bool {
     return true
 }
 
+process_include :: proc(t: ^Tokenizer) -> bool {
+    path := scan(t)
+    expect_token_kind(path, .String) or_return
+    file_src := load_file(path.text[1:len(path.text)-1]) or_return
+    append(&include_file_sources, file_src)
+
+    file_tokenizer: Tokenizer
+    init(&file_tokenizer, string(file_src), path.text[1:len(path.text)-1])
+
+    state := get_state(file_tokenizer)
+
+    push_state(t, state)
+    // fmt.println(scan(t))
+    // fmt.println(scan(t))
+
+    return true
+}
+
 push_state :: proc(t: ^Tokenizer, s: Tokenizer_State, macro_params := []Macro_Param{}) {
     append(&tok_state_stack, get_state(t^))
     set_state(t, s)
     append(&macro_params_stack, macro_params)
 }
 
+pop_state :: proc(t: ^Tokenizer) -> bool {
+    if len(tok_state_stack) == 0 { return false }
+    set_state(t, pop(&tok_state_stack))
+    pop(&macro_params_stack)
+    return true
+}
+
 get_state :: proc(t: Tokenizer) -> Tokenizer_State {
     return {
+        path = t.path,
         ch = t.ch,
         offset = t.offset,
         read_offset = t.read_offset,
@@ -403,6 +429,7 @@ print_macro_stacktrace_and_exit :: proc() -> ! {
 }
 
 set_state :: proc(t: ^Tokenizer, s: Tokenizer_State) {
+    t.path = s.path
     t.ch = s.ch
     t.offset = s.offset
     t.read_offset = s.read_offset
@@ -410,6 +437,16 @@ set_state :: proc(t: ^Tokenizer, s: Tokenizer_State) {
     t.insert_semicolon = s.insert_semicolon
     t.line_count = s.line_count
     t.src = s.src
+}
+
+load_file :: proc(filename: string) -> ([]byte, bool) {
+    bytes, err := os.read_entire_file_or_err(filename)
+    if err != nil {
+        fmt.eprintf("ERROR: Could not load file '%v': %v\n", filename, os.error_string(err))
+        return {}, false
+    }
+
+    return bytes, true
 }
 
 main :: proc() {
@@ -421,11 +458,8 @@ main :: proc() {
     }
 
     // Load source file bytes
-    bytes, err := os.read_entire_file_or_err(os.args[1])
-    if err != nil {
-        fmt.eprintf("ERROR: Could not load file '%v': %v\n", os.args[1], os.error_string(err))
-        os.exit(1)
-    }
+    bytes, ok := load_file(os.args[1])
+    if !ok { os.exit(1) }
 
     // Convert source file bytes -> string
     file_src := strings.clone_from_bytes(bytes)
@@ -459,6 +493,13 @@ main :: proc() {
         }
         delete(scopes)
     }
+
+    defer {
+        for file_src in include_file_sources {
+            delete(file_src)
+        }
+        delete(include_file_sources)
+    }
     
     // Append global scope
     append_nothing(&scopes)
@@ -472,6 +513,9 @@ main :: proc() {
             if !process_fn(&tokenizer) { print_macro_stacktrace_and_exit() }
             resize(&path_builder.buf, len(output_path))
 
+        case .Include:
+            if !process_include(&tokenizer) { print_macro_stacktrace_and_exit() }
+
         case .Def:
             if !process_macro(&tokenizer) { print_macro_stacktrace_and_exit() }
 
@@ -479,9 +523,7 @@ main :: proc() {
             if !expand_macro(&tokenizer, token.text, token.pos) { print_macro_stacktrace_and_exit() }
 
         case .EOF:
-            if len(tok_state_stack) == 0 { break loop }
-            set_state(&tokenizer, pop(&tok_state_stack))
-            pop(&macro_params_stack)
+            if !pop_state(&tokenizer) { break loop }
 
         case:
             default_error_handler(token.pos, "unexpected token '%v'", token.text)
