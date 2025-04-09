@@ -182,9 +182,7 @@ process_block :: proc(t: ^Tokenizer) -> bool {
                 default_error_handler(token.pos, "parameter '%v' is not declared", token.text)
                 return false
             }
-            append(&tok_state_stack, get_state(t^))
-            set_state(t, param_value)
-            append(&macro_params_stack, []Macro_Param{})
+            push_state(t, param_value)
 
         case .Lambda:
             scope := &scopes[len(scopes) - 1]
@@ -280,9 +278,7 @@ expand_macro :: proc(t: ^Tokenizer, macro_name: string, pos: Pos) -> bool {
         }
     }
 
-    append(&tok_state_stack, get_state(t^))
-    set_state(t, m.tok_state)
-    append(&macro_params_stack, m.params[:])
+    push_state(t, m.tok_state, m.params[:])
 
     return true
 }
@@ -376,6 +372,12 @@ process_macro :: proc(t: ^Tokenizer) -> bool {
     macro[macro_name] = m
 
     return true
+}
+
+push_state :: proc(t: ^Tokenizer, s: Tokenizer_State, macro_params := []Macro_Param{}) {
+    append(&tok_state_stack, get_state(t^))
+    set_state(t, s)
+    append(&macro_params_stack, macro_params)
 }
 
 get_state :: proc(t: Tokenizer) -> Tokenizer_State {
